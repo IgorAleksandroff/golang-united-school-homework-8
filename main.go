@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,15 +20,17 @@ type UserStruct struct {
 }
 
 var (
+	id        string
 	operation string
 	item      string
-	fileName  string
+	fName     string
 )
 
 func init() {
+	flag.StringVar(&id, "id", "", "argument -id")
 	flag.StringVar(&operation, "operation", "", "argument -operation")
 	flag.StringVar(&item, "item", "", "argument -item")
-	flag.StringVar(&fileName, "fileName", "users.json", "argument -fileName")
+	flag.StringVar(&fName, "fileName", "users.json", "argument -fileName")
 }
 
 func Perform(args Arguments, writer io.Writer) error {
@@ -44,25 +45,33 @@ func Perform(args Arguments, writer io.Writer) error {
 	}
 	defer file.Close()
 
-	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		return errors.New("read file error")
+	operation, ok := args["operation"]
+	if !ok {
+		return errors.New("invalid args")
 	}
 
-	var us []UserStruct
-	if err := json.Unmarshal(bytes, &us); err != nil {
-		return err
-	}
-	var s UserStruct
-	if err := json.Unmarshal([]byte(args["item"]), &s); err != nil {
-		return err
-	}
-	us = append(us, s)
-	fmt.Println(us)
+	switch operation {
+	case "list":
+		itemBytes, err := list(file)
 
-	_, err = writer.Write(bytes)
-	if err != nil {
-		return errors.New("writer error")
+		_, err = writer.Write(itemBytes)
+		if err != nil {
+			return errors.New("writer error")
+		}
+	case "add":
+		item, ok := args["item"]
+		if !ok {
+			return errors.New("invalid args")
+		}
+
+		err := add(file, item)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	default:
+		return errors.New("unknown operation")
 	}
 
 	return nil
@@ -72,18 +81,50 @@ func parseArgs() Arguments {
 	flag.Parse()
 
 	args := Arguments{
-		"id":        "",
+		"id":        id,
 		"operation": operation,
 		"item":      item,
-		"fileName":  fileName,
+		"fileName":  fName,
 	}
 
-	fmt.Println(flag.Args())
-	fmt.Println(operation)
-	fmt.Println(item)
-	fmt.Println(fileName)
-
 	return args
+}
+
+func list(file *os.File) ([]byte, error) {
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.New("read file error")
+	}
+
+	return bytes, nil
+}
+
+func add(file *os.File, item string) error {
+	bytes, err := list(file)
+	if err != nil {
+		return err
+	}
+
+	var users []UserStruct
+	if err := json.Unmarshal(bytes, &users); err != nil {
+		return err
+	}
+
+	var user UserStruct
+	if err := json.Unmarshal([]byte(item), &user); err != nil {
+		return err
+	}
+	users = append(users, user)
+	usersBytes, err := json.Marshal(users)
+	if err != nil {
+		return err
+	}
+
+	if _, err := file.WriteAt(usersBytes, 0); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func main() {
