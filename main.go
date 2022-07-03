@@ -92,6 +92,21 @@ func Perform(args Arguments, writer io.Writer) error {
 		if err != nil {
 			return errors.New("writer error")
 		}
+	case "remove":
+		id, ok := args["id"]
+		id = strings.TrimSpace(id)
+		if !ok || id == "" {
+			return errors.New("-id flag has to be specified")
+		}
+
+		msg, err := remove(file, id)
+
+		if msg != "" {
+			_, err = writer.Write([]byte(msg))
+			if err != nil {
+				return errors.New("writer error")
+			}
+		}
 	default:
 		return errors.New(fmt.Sprintf("Operation %s not allowed!", operation))
 	}
@@ -181,6 +196,43 @@ func findById(file *os.File, id string) ([]byte, error) {
 	}
 
 	return usersBytes, nil
+}
+
+func remove(file *os.File, id string) (string, error) {
+	bytes, err := list(file)
+	if err != nil {
+		return "", err
+	}
+
+	users := make([]UserStruct, 0)
+	json.Unmarshal(bytes, &users)
+
+	foundId := -1
+	for i, us := range users {
+		if id == us.Id {
+			foundId = i
+		}
+	}
+
+	if foundId == -1 {
+		return fmt.Sprintf("Item with id %s not found", id), nil
+	}
+
+	users = append(users[:foundId], users[foundId+1:]...)
+
+	usersBytes, err := json.Marshal(users)
+	if err != nil {
+		return "", err
+	}
+
+	if err := file.Truncate(0); err != nil {
+		return "", err
+	}
+	if _, err := file.Write(usersBytes); err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
 func main() {
