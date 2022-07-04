@@ -42,7 +42,7 @@ func Perform(args Arguments, writer io.Writer) error {
 		return errors.New("-fileName flag has to be specified")
 	}
 
-	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE|os.O_TRUNC, filePerm)
+	file, err := os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, filePerm)
 	if err != nil {
 		return errors.New("open file error")
 	}
