@@ -228,6 +228,11 @@ func remove(file *os.File, id string) (string, error) {
 	if err := file.Truncate(0); err != nil {
 		return "", err
 	}
+
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", err
+	}
+
 	if _, err := file.Write(usersBytes); err != nil {
 		return "", err
 	}
